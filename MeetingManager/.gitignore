@@ -1,0 +1,24 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# VS Code
+.vscode/
+
+# Build output
+*.dll
+*.exe
+
+# Logs
+*.log
+
+# User secrets
+secrets.json
+
+# Misc
+*.db
+*.DS_Store
