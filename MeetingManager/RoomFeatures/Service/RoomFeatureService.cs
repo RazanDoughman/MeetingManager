@@ -21,7 +21,7 @@ namespace MeetingManager.RoomFeatures.Service
             return await _context.RoomFeatures
                 .Include(rf => rf.Room)
                 .Include(rf => rf.Feature)
-                .ToListAsync(); 
+                .ToListAsync();
         }
 
         public async Task<RoomFeature?> GetByIdAsync(Guid id)

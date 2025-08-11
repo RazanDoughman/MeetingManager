@@ -72,6 +72,6 @@ namespace MeetingManager.Features.Controller
 
             return NoContent();
         }
-    
+
     }
 }

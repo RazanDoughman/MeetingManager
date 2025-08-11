@@ -32,13 +32,13 @@ namespace MeetingManager
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-           
+
             foreach (var entity in modelBuilder.Model.GetEntityTypes())
             {
                 entity.SetTableName(entity.ClrType.Name);
             }
 
-           
+
             modelBuilder.Entity<RoomFeature>()
                 .HasOne(rf => rf.Room)
                 .WithMany()

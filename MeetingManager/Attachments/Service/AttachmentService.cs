@@ -1,5 +1,6 @@
 ﻿using MeetingManager;
 using MeetingManager.Attachments.Model;
+using MeetingManager.Data;
 using Microsoft.EntityFrameworkCore;
 
 public class AttachmentService : IAttachmentService
