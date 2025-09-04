@@ -4,6 +4,7 @@ using MeetingManager.Service;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,6 +14,7 @@ namespace MeetingManager.Features.Controller
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Policy = "CanView")]
     public class FeatureController : ControllerBase
     {
         private readonly IFeatureService _featureService;
@@ -44,6 +46,7 @@ namespace MeetingManager.Features.Controller
         // PUT: api/Feature/5
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
+        [Authorize(Policy = "AdminOnly")]
         public async Task<IActionResult> Update(Guid id, Feature feature)
         {
             var updated = await _featureService.UpdateFeatureAsync(id, feature);
@@ -56,6 +59,7 @@ namespace MeetingManager.Features.Controller
         // POST: api/Feature
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
+        [Authorize(Policy = "AdminOnly")]
         public async Task<ActionResult<Feature>> Create(Feature feature)
         {
             var created = await _featureService.CreateFeatureAsync(feature);
@@ -64,6 +68,7 @@ namespace MeetingManager.Features.Controller
 
         // DELETE: api/Feature/5
         [HttpDelete("{id}")]
+        [Authorize(Policy = "AdminOnly")]
         public async Task<IActionResult> Delete(Guid id)
         {
             var deleted = await _featureService.DeleteFeatureAsync(id);

@@ -4,6 +4,7 @@ using MeetingManager.Rooms.Service;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,6 +14,7 @@ namespace MeetingManager.Rooms.Controller
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Policy = "CanView")]
     public class RoomController : ControllerBase
     {
         private readonly IRoomService _roomService;
@@ -41,6 +43,7 @@ namespace MeetingManager.Rooms.Controller
 
         // PUT: api/Rooms/5
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
+        [Authorize(Policy = "AdminOnly")]
         [HttpPut("{id}")]
         public async Task<IActionResult> PutRoom(Guid id, Room room)
         {
@@ -57,6 +60,7 @@ namespace MeetingManager.Rooms.Controller
         // POST: api/Rooms
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
+        [Authorize(Policy = "AdminOnly")]
         public async Task<ActionResult<Room>> PostRoom(Room room)
         {
             var created = await _roomService.CreateRoomAsync(room);
@@ -65,6 +69,7 @@ namespace MeetingManager.Rooms.Controller
 
         // DELETE: api/Rooms/5
         [HttpDelete("{id}")]
+        [Authorize(Policy = "AdminOnly")]
         public async Task<IActionResult> DeleteRoom(Guid id)
         {
             var deleted = await _roomService.DeleteRoomAsync(id);

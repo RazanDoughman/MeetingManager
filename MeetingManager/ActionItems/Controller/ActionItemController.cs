@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 using MeetingManager;
 using MeetingManager.ActionItems.Model;
 
@@ -12,6 +13,7 @@ namespace MeetingManager.ActionItems.Controller
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Policy = "CanView")]
     public class ActionItemController : ControllerBase
     {
         private readonly IActionItemService _service;
@@ -48,6 +50,7 @@ namespace MeetingManager.ActionItems.Controller
         // PUT: api/ActionItem/5
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
+        [Authorize(Policy = "CanBook")]
         public async Task<IActionResult> Update(Guid id, UpdateActionItemDto dto)
         {
             var success = await _service.UpdateAsync(id, dto);
@@ -58,6 +61,7 @@ namespace MeetingManager.ActionItems.Controller
         // POST: api/ActionItem
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
+        [Authorize(Policy = "CanBook")]
         public async Task<ActionResult<ActionItemDto>> Create(CreateActionItemDto dto)
         {
             var actionItem = new ActionItem
@@ -91,6 +95,7 @@ namespace MeetingManager.ActionItems.Controller
 
         // DELETE: api/ActionItem/5
         [HttpDelete("{id}")]
+        [Authorize(Policy = "AdminOnly")]
         public async Task<IActionResult> Delete(Guid id)
         {
             var deleted = await _service.DeleteAsync(id);

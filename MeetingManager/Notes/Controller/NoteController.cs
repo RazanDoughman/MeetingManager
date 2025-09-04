@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 using MeetingManager;
 using MeetingManager.Notes.Model;
 
@@ -12,6 +13,7 @@ namespace MeetingManager.Notes.Controller
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Policy = "CanView")]
     public class NoteController : ControllerBase
     {
         private readonly INoteService _service;
@@ -44,6 +46,7 @@ namespace MeetingManager.Notes.Controller
         // POST: api/Note
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
+        [Authorize(Policy = "CanBook")]
         public async Task<ActionResult<NoteDto>> Create(CreateNoteDto dto)
         {
             var note = new Note
@@ -69,6 +72,7 @@ namespace MeetingManager.Notes.Controller
 
         // DELETE: api/Note/5
         [HttpDelete("{id}")]
+        [Authorize(Policy = "AdminOnly")]
         public async Task<IActionResult> Delete(Guid id)
         {
             var deleted = await _service.DeleteAsync(id);

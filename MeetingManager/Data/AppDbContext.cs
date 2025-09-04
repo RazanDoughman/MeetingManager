@@ -1,26 +1,23 @@
-﻿using Microsoft.EntityFrameworkCore;
-using MeetingManager.Roles.Model;
-using MeetingManager.Users.Model;
-using MeetingManager.Rooms.Model;
-using MeetingManager.Features.Model;
-using MeetingManager.RoomFeatures.Model;
-using MeetingManager.Notes.Model;
-using MeetingManager.Meetings.Model;
-using MeetingManager.Attendees.Model;
-using MeetingManager.ActionItems.Model;
+﻿using MeetingManager.ActionItems.Model;
 using MeetingManager.Attachments.Model;
+using MeetingManager.Attendees.Model;
+using MeetingManager.Features.Model;
+using MeetingManager.Meetings.Model;
+using MeetingManager.Notes.Model;
+using MeetingManager.RoomFeatures.Model;
+using MeetingManager.Rooms.Model;
+using MeetingManager.Users.Model;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 
 namespace MeetingManager
 {
-    public class AppDbContext : DbContext
-    {
-        public AppDbContext(DbContextOptions<AppDbContext> options)
-    : base(options)
+        public class AppDbContext : IdentityDbContext<ApplicationUser>
         {
-        }
+            public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
-        public DbSet<User> Users { get; set; }
-        public DbSet<Role> Roles { get; set; }
+       // public DbSet<User> Users { get; set; }
+       // public DbSet<Role> Roles { get; set; }
         public DbSet<Room> Rooms { get; set; }
         public DbSet<Feature> Features { get; set; }
         public DbSet<RoomFeature> RoomFeatures { get; set; }

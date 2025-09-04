@@ -18,6 +18,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Remove="Roles\Service\IRoleService.cs" />
+    <Compile Remove="Roles\Service\RoleService.cs" />
+    <Compile Remove="Users\Service\IUserService.cs" />
+    <Compile Remove="Users\Service\UserService.cs" />
     <Compile Remove="WeatherForecast.cs" />
   </ItemGroup>
 
@@ -36,6 +40,11 @@
     </PackageReference>
     <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="9.0.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Roles\Service\" />
+    <Folder Include="Users\Service\" />
   </ItemGroup>
 
 </Project>

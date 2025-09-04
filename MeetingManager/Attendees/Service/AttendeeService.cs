@@ -1,6 +1,6 @@
 ﻿using MeetingManager;
 using MeetingManager.Attendees.Model;
-using MeetingManager.Data;
+using MeetingManager;
 using Microsoft.EntityFrameworkCore;
 
 public class AttendeeService : IAttendeeService

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -12,6 +13,7 @@ namespace MeetingManager.Attachments.Controller
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Policy = "CanView")]
     public class AttachmentController : ControllerBase
     {
         private readonly IAttachmentService _service;
@@ -41,6 +43,7 @@ namespace MeetingManager.Attachments.Controller
         // POST: api/Attachment
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
+        [Authorize(Policy = "CanBook")]
         public async Task<ActionResult<AttachmentDto>> Create(CreateAttachmentDto dto)
         {
             var attachment = new Attachment
@@ -66,6 +69,7 @@ namespace MeetingManager.Attachments.Controller
 
         // DELETE: api/Attachment/5
         [HttpDelete("{id}")]
+        [Authorize(Policy = "AdminOnly")]
         public async Task<IActionResult> Delete(Guid id)
         {
             var deleted = await _service.DeleteAsync(id);

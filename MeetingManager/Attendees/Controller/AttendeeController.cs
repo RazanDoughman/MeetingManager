@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using MeetingManager;
 using MeetingManager.Attendees.Model;
@@ -12,6 +13,7 @@ namespace MeetingManager.Attendees.Controller
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Policy = "CanView")]
     public class AttendeeController : ControllerBase
     {
         private readonly IAttendeeService _service;
@@ -43,6 +45,7 @@ namespace MeetingManager.Attendees.Controller
         // PUT: api/Attendee/5
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
+        [Authorize(Policy = "CanBook")]
         public async Task<IActionResult> Update(Guid id, UpdateAttendeeDto dto)
         {
             var updated = await _service.UpdateAsync(id, dto);
@@ -54,6 +57,7 @@ namespace MeetingManager.Attendees.Controller
         // POST: api/Attendee
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
+        [Authorize(Policy = "CanBook")]
         public async Task<ActionResult<AttendeeDto>> Create(CreateAttendeeDto dto)
         {
             var attendee = new Attendee
@@ -78,6 +82,7 @@ namespace MeetingManager.Attendees.Controller
 
         // DELETE: api/Attendee/5
         [HttpDelete("{id}")]
+        [Authorize(Policy = "AdminOnly")]
         public async Task<IActionResult> Delete(Guid id)
         {
             var deleted = await _service.DeleteAsync(id);

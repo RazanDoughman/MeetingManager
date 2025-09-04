@@ -3,6 +3,7 @@ using MeetingManager.DTOs.RoomFeature;
 using MeetingManager.RoomFeatures.Model;
 using MeetingManager.Services.Interfaces;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -14,6 +15,7 @@ namespace MeetingManager.RoomFeatures.Controller
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Policy = "CanView")]
     public class RoomFeatureController : ControllerBase
     {
         private readonly IRoomFeatureService _service;
@@ -47,6 +49,7 @@ namespace MeetingManager.RoomFeatures.Controller
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
 
         [HttpPost]
+        [Authorize(Policy = "AdminOnly")]
         public async Task<ActionResult<RoomFeatureDto>> Create(CreateRoomFeatureDto dto)
         {
             var newEntity = new RoomFeature
@@ -70,6 +73,7 @@ namespace MeetingManager.RoomFeatures.Controller
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Policy = "AdminOnly")]
         public async Task<IActionResult> Delete(Guid id)
         {
             var deleted = await _service.DeleteAsync(id);

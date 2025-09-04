@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 using MeetingManager;
 using MeetingManager.Meetings.Model;
 
@@ -12,6 +13,7 @@ namespace MeetingManager.Meetings.Controller
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Policy = "CanView")]
     public class MeetingController : ControllerBase
     {
         private readonly IMeetingService _service;
@@ -50,6 +52,7 @@ namespace MeetingManager.Meetings.Controller
         // PUT: api/Meeting/5
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
+        [Authorize(Policy = "AdminOnly")]
         public async Task<IActionResult> Update(Guid id, UpdateMeetingDto dto)
         {
             var success = await _service.UpdateAsync(id, dto);
@@ -58,9 +61,10 @@ namespace MeetingManager.Meetings.Controller
         }
 
 
-        // POST: api/Meeting
+        // POST: api/Meeting      (book/create)  Admin + Employee
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
+        [Authorize(Policy = "CanBook")]
         public async Task<ActionResult<MeetingDto>> Create(CreateMeetingDto dto)
         {
             var meeting = new Meeting
@@ -94,6 +98,7 @@ namespace MeetingManager.Meetings.Controller
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Policy = "AdminOnly")]             // ← only Admin can delete
         public async Task<IActionResult> Delete(Guid id)
         {
             var deleted = await _service.DeleteAsync(id);
