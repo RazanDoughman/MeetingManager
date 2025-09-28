@@ -4,10 +4,14 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
 using MeetingManager;
 using MeetingManager.Meetings.Model;
+using System.Security.Claims;
+using MeetingManager.Users.Model;
+
 
 namespace MeetingManager.Meetings.Controller
 {
@@ -17,10 +21,14 @@ namespace MeetingManager.Meetings.Controller
     public class MeetingController : ControllerBase
     {
         private readonly IMeetingService _service;
+        private readonly AppDbContext _db;
+        private readonly UserManager<ApplicationUser> _userManager;
 
-        public MeetingController(IMeetingService service)
+        public MeetingController(IMeetingService service, AppDbContext db, UserManager<ApplicationUser> userManager)
         {
             _service = service;
+            _db = db;
+            _userManager = userManager;
         }
 
 
@@ -61,21 +69,50 @@ namespace MeetingManager.Meetings.Controller
         }
 
 
-        // POST: api/Meeting      (book/create)  Admin + Employee
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
         [Authorize(Policy = "CanBook")]
-        public async Task<ActionResult<MeetingDto>> Create(CreateMeetingDto dto)
+        public async Task<ActionResult<MeetingDto>> Create([FromBody] CreateMeetingDto dto)
         {
+            // 1) Get Identity user id from JWT and load the Identity user
+            var identityId = User.FindFirst("sub")?.Value
+                          ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrWhiteSpace(identityId))
+                return Unauthorized("No subject/id claim in token.");
+
+            var identityUser = await _userManager.FindByIdAsync(identityId);
+            if (identityUser == null)
+                return Unauthorized("Identity user not found.");
+
+            if (string.IsNullOrWhiteSpace(identityUser.Email))
+                return BadRequest("Identity user has no email; cannot link to application user.");
+
+            // 2) Link by EMAIL ONLY (case-insensitive)
+            var idEmail = identityUser.Email.Trim().ToLowerInvariant();
+
+            var domainUser = await _db.AppUsers
+                .SingleOrDefaultAsync(u => u.Email != null && u.Email.Trim().ToLower() == idEmail);
+
+            if (domainUser == null)
+                return BadRequest(new
+                {
+                    error = "Signed-in user not found in application Users table (matched by email).",
+                    identity = new { identityUser.Id, identityUser.UserName, identityUser.Email }
+                });
+
+            // 3) Validate room
+            var roomExists = await _db.Rooms.AnyAsync(r => r.Id == dto.RoomId);
+            if (!roomExists) return BadRequest("Room not found.");
+
+            // 4) Create meeting with domain user id (FK satisfied)
             var meeting = new Meeting
             {
                 RoomId = dto.RoomId,
-                UserId = dto.UserId,
+                UserId = domainUser.Id,
                 Title = dto.Title,
                 Agenda = dto.Agenda,
                 StartTime = dto.StartTime,
                 EndTime = dto.EndTime,
-                Status = dto.Status
+                Status = string.IsNullOrWhiteSpace(dto.Status) ? "Scheduled" : dto.Status
             };
 
             var created = await _service.CreateAsync(meeting);
@@ -91,10 +128,12 @@ namespace MeetingManager.Meetings.Controller
                 UpdatedAt = created.UpdatedAt,
                 Status = created.Status,
                 RoomId = created.RoomId,
-                UserId = created.UserId
+                RoomName = created.Room?.RoomName,
+                UserId = created.UserId,
+                UserName = created.User?.Name
             };
 
-            return CreatedAtAction(nameof(GetAll), new { id = result.Id }, result);
+            return Created($"/api/Meeting/{result.Id}", result);
         }
 
         [HttpDelete("{id}")]

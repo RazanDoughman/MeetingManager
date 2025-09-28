@@ -30,6 +30,13 @@ builder.Services.AddIdentityCore<ApplicationUser>(opts =>
 .AddSignInManager<SignInManager<ApplicationUser>>()
 .AddDefaultTokenProviders();
 
+
+builder.Services.Configure<IdentityOptions>(opt =>
+{
+    opt.SignIn.RequireConfirmedAccount = false;
+    opt.SignIn.RequireConfirmedEmail = false;
+});
+
 // --------------- JWT ----------------
 var jwt = builder.Configuration.GetSection("Jwt");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

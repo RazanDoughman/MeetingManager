@@ -7,6 +7,7 @@ using MeetingManager.Notes.Model;
 using MeetingManager.RoomFeatures.Model;
 using MeetingManager.Rooms.Model;
 using MeetingManager.Users.Model;
+using MeetingManager.Roles.Model;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,8 +17,8 @@ namespace MeetingManager
         {
             public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
-       // public DbSet<User> Users { get; set; }
-       // public DbSet<Role> Roles { get; set; }
+        public DbSet<User> AppUsers { get; set; }
+        public DbSet<Role> Roles { get; set; }
         public DbSet<Room> Rooms { get; set; }
         public DbSet<Feature> Features { get; set; }
         public DbSet<RoomFeature> RoomFeatures { get; set; }
@@ -89,6 +90,15 @@ namespace MeetingManager
                 .HasOne(a => a.Meeting)
                 .WithMany()
                 .HasForeignKey(a => a.MeetingId);
+
+            
+            modelBuilder.Entity<User>().ToTable("User");
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.Email)
+                .IsUnique();
+
+            modelBuilder.Entity<User>().Property(u => u.PasswordHash).IsRequired(false);
+            modelBuilder.Entity<User>().Property(u => u.PhoneNumber).IsRequired(false);
 
 
         }

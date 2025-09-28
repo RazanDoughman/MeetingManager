@@ -42,7 +42,7 @@ namespace MeetingManager.Users.Controller
 
         // Admin-only user creation (registration)
         [HttpPost("register")]
-        [Authorize(Roles = "Admin")]
+        [AllowAnonymous]
         public async Task<IActionResult> Register(RegisterRequest req)
         {
             var u = new ApplicationUser
