@@ -100,6 +100,9 @@ namespace MeetingManager
             modelBuilder.Entity<User>().Property(u => u.PasswordHash).IsRequired(false);
             modelBuilder.Entity<User>().Property(u => u.PhoneNumber).IsRequired(false);
 
+            modelBuilder.Entity<Meeting>()
+                .HasIndex(m => new { m.RoomId, m.StartTime, m.EndTime });
+
 
         }
 

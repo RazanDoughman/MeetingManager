@@ -73,7 +73,7 @@ namespace MeetingManager.Meetings.Controller
         [Authorize(Policy = "CanBook")]
         public async Task<ActionResult<MeetingDto>> Create([FromBody] CreateMeetingDto dto)
         {
-            // 1) Get Identity user id from JWT and load the Identity user
+
             var identityId = User.FindFirst("sub")?.Value
                           ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrWhiteSpace(identityId))
@@ -86,7 +86,7 @@ namespace MeetingManager.Meetings.Controller
             if (string.IsNullOrWhiteSpace(identityUser.Email))
                 return BadRequest("Identity user has no email; cannot link to application user.");
 
-            // 2) Link by EMAIL ONLY (case-insensitive)
+
             var idEmail = identityUser.Email.Trim().ToLowerInvariant();
 
             var domainUser = await _db.AppUsers
@@ -99,45 +99,55 @@ namespace MeetingManager.Meetings.Controller
                     identity = new { identityUser.Id, identityUser.UserName, identityUser.Email }
                 });
 
-            // 3) Validate room
+
             var roomExists = await _db.Rooms.AnyAsync(r => r.Id == dto.RoomId);
             if (!roomExists) return BadRequest("Room not found.");
 
-            // 4) Create meeting with domain user id (FK satisfied)
+            if (dto.EndTime <= dto.StartTime)
+                return BadRequest("End time must be after start time.");
+
+            var startUtc = DateTime.SpecifyKind(dto.StartTime, DateTimeKind.Utc);
+            var endUtc = DateTime.SpecifyKind(dto.EndTime, DateTimeKind.Utc);
+
             var meeting = new Meeting
             {
                 RoomId = dto.RoomId,
                 UserId = domainUser.Id,
                 Title = dto.Title,
                 Agenda = dto.Agenda,
-                StartTime = dto.StartTime,
-                EndTime = dto.EndTime,
+                StartTime = startUtc,
+                EndTime = endUtc,
                 Status = string.IsNullOrWhiteSpace(dto.Status) ? "Scheduled" : dto.Status
             };
+            try {
+                var created = await _service.CreateAsync(meeting);
 
-            var created = await _service.CreateAsync(meeting);
+                var result = new MeetingDto
+                {
+                    Id = created.Id,
+                    Title = created.Title,
+                    Agenda = created.Agenda,
+                    StartTime = created.StartTime,
+                    EndTime = created.EndTime,
+                    CreatedAt = created.CreatedAt,
+                    UpdatedAt = created.UpdatedAt,
+                    Status = created.Status,
+                    RoomId = created.RoomId,
+                    RoomName = created.Room?.RoomName,
+                    UserId = created.UserId,
+                    UserName = created.User?.Name
+                };
 
-            var result = new MeetingDto
+                return Created($"/api/Meeting/{result.Id}", result);
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("already booked"))
             {
-                Id = created.Id,
-                Title = created.Title,
-                Agenda = created.Agenda,
-                StartTime = created.StartTime,
-                EndTime = created.EndTime,
-                CreatedAt = created.CreatedAt,
-                UpdatedAt = created.UpdatedAt,
-                Status = created.Status,
-                RoomId = created.RoomId,
-                RoomName = created.Room?.RoomName,
-                UserId = created.UserId,
-                UserName = created.User?.Name
-            };
-
-            return Created($"/api/Meeting/{result.Id}", result);
+                return Conflict("Room is already booked for the selected time.");
+            }
         }
 
         [HttpDelete("{id}")]
-        [Authorize(Policy = "AdminOnly")]             // ← only Admin can delete
+        [Authorize(Policy = "AdminOnly")]             
         public async Task<IActionResult> Delete(Guid id)
         {
             var deleted = await _service.DeleteAsync(id);

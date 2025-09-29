@@ -1,6 +1,7 @@
 ﻿using MeetingManager;
 using MeetingManager.Meetings.Model;
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 
 public class MeetingService : IMeetingService
 {
@@ -29,12 +30,35 @@ public class MeetingService : IMeetingService
 
     public async Task<Meeting> CreateAsync(Meeting meeting)
     {
+        
+        meeting.StartTime = DateTime.SpecifyKind(meeting.StartTime, DateTimeKind.Utc);
+        meeting.EndTime = DateTime.SpecifyKind(meeting.EndTime, DateTimeKind.Utc);
+
+        if (meeting.EndTime <= meeting.StartTime)
+            throw new InvalidOperationException("End time must be after start time.");
+
+      
+        await using var tx = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+
+        
+        bool overlaps = await _context.Meetings.AnyAsync(m =>
+            m.RoomId == meeting.RoomId &&
+            meeting.StartTime < m.EndTime &&
+            meeting.EndTime > m.StartTime
+        );
+
+        if (overlaps)
+            throw new InvalidOperationException("Room is already booked for the selected time.");
+
         meeting.Id = Guid.NewGuid();
         meeting.CreatedAt = DateTime.UtcNow;
         meeting.UpdatedAt = DateTime.UtcNow;
 
         _context.Meetings.Add(meeting);
         await _context.SaveChangesAsync();
+
+        await tx.CommitAsync();
+
         return meeting;
     }
 
