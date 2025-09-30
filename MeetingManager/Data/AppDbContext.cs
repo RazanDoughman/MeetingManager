@@ -101,7 +101,29 @@ namespace MeetingManager
             modelBuilder.Entity<User>().Property(u => u.PhoneNumber).IsRequired(false);
 
             modelBuilder.Entity<Meeting>()
+                .HasOne(m => m.Room)
+                .WithMany()
+                .HasForeignKey(m => m.RoomId);
+
+            modelBuilder.Entity<Meeting>()
+                .HasOne(m => m.User)           
+                .WithMany()
+                .HasForeignKey(m => m.UserId);
+
+            modelBuilder.Entity<Meeting>()
                 .HasIndex(m => new { m.RoomId, m.StartTime, m.EndTime });
+
+            modelBuilder.Entity<Meeting>()
+                .HasIndex(m => m.StartTime);
+
+
+            modelBuilder.Entity<Attendee>()
+                .HasIndex(a => new { a.UserId, a.MeetingId })
+                .IsUnique();
+
+            modelBuilder.Entity<Attendee>()
+                .HasIndex(a => a.UserId);
+
 
 
         }

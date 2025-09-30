@@ -4,13 +4,15 @@ using MeetingManager.Rooms.Service;
 using MeetingManager.Service;
 using MeetingManager.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
-
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text;
 using MeetingManager.Users.Model;                 // ApplicationUser
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using MeetingManager.Service;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -87,8 +89,7 @@ builder.Services.AddScoped<IMeetingService, MeetingService>();
 builder.Services.AddScoped<IAttendeeService, AttendeeService>();
 builder.Services.AddScoped<IActionItemService, ActionItemService>();
 builder.Services.AddScoped<IAttachmentService, AttachmentService>();
-
-
+builder.Services.AddScoped<MeetingQueryService>();
 
 // -------- Controllers/Swagger -------
 builder.Services.AddControllers();
@@ -120,6 +121,13 @@ builder.Services.AddSwaggerGen(o =>
             Array.Empty<string>()
         }
     });
+});
+
+builder.Services.AddControllers().AddJsonOptions(o =>
+{
+    o.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+    o.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+    o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
 
 var app = builder.Build();
@@ -163,6 +171,8 @@ using (var scope = app.Services.CreateScope())
         await userMgr.CreateAsync(adminUser, "Admin#12345"); // change later
         await userMgr.AddToRoleAsync(adminUser, "Admin");
     }
+
+    
 }
 
 app.Run();

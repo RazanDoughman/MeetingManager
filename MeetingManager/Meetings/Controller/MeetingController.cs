@@ -1,16 +1,17 @@
-﻿using System;
+﻿using MeetingManager;
+using MeetingManager.Attendees.Model;
+using MeetingManager.Meetings.Model;
+using MeetingManager.Users.Model;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Authorization;
-using MeetingManager;
-using MeetingManager.Meetings.Model;
 using System.Security.Claims;
-using MeetingManager.Users.Model;
+using System.Threading.Tasks;
 
 
 namespace MeetingManager.Meetings.Controller
@@ -122,6 +123,33 @@ namespace MeetingManager.Meetings.Controller
             try {
                 var created = await _service.CreateAsync(meeting);
 
+                // Add creator as organizer attendee
+                _db.Attendees.Add(new Attendee
+                {
+                    Id = Guid.NewGuid(),
+                    MeetingId = created.Id,
+                    UserId = domainUser.Id,
+                    IsOrganizer = true,
+                    Attended = false 
+                });
+
+                if (dto.AttendeeUserIds != null && dto.AttendeeUserIds.Count > 0)
+                {
+                    foreach (var uid in dto.AttendeeUserIds.Distinct().Where(id => id != domainUser.Id))
+                    {
+                        _db.Attendees.Add(new Attendee
+                        {
+                            Id = Guid.NewGuid(),
+                            MeetingId = created.Id,
+                            UserId = uid,
+                            IsOrganizer = false,
+                            Attended = false
+                        });
+                    }
+                }
+
+                await _db.SaveChangesAsync();
+
                 var result = new MeetingDto
                 {
                     Id = created.Id,
@@ -146,6 +174,15 @@ namespace MeetingManager.Meetings.Controller
             }
         }
 
+        [HttpGet("picker-users")]
+        public async Task<ActionResult<IEnumerable<object>>> GetPickerUsers()
+        {
+            var users = await _db.AppUsers
+                .Select(u => new { id = u.Id, name = u.Name, email = u.Email })
+                .ToListAsync();
+            return Ok(users);
+        }
+
         [HttpDelete("{id}")]
         [Authorize(Policy = "AdminOnly")]             
         public async Task<IActionResult> Delete(Guid id)
@@ -153,6 +190,74 @@ namespace MeetingManager.Meetings.Controller
             var deleted = await _service.DeleteAsync(id);
             if (!deleted) return NotFound();
             return NoContent();
+        }
+
+
+        public class InviteUsersDto
+        {
+            public List<Guid> UserIds { get; set; } = new();
+        }
+
+        [HttpPost("{id:guid}/invite")]
+        [Authorize(Policy = "CanBook")] 
+        public async Task<IActionResult> Invite(Guid id, [FromBody] InviteUsersDto dto)
+        {
+            var identityId = User.FindFirst("sub")?.Value
+                          ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrWhiteSpace(identityId))
+                return Unauthorized("No subject/id claim in token.");
+
+            var identityUser = await _userManager.FindByIdAsync(identityId);
+            if (identityUser == null || string.IsNullOrWhiteSpace(identityUser.Email))
+                return Unauthorized("Identity user not found or has no email.");
+
+            var idEmail = identityUser.Email.Trim().ToLowerInvariant();
+            var domainUser = await _db.AppUsers
+                .SingleOrDefaultAsync(u => u.Email != null && u.Email.Trim().ToLower() == idEmail);
+            if (domainUser == null)
+                return BadRequest("Signed-in user not found in application Users table.");
+
+            var meeting = await _db.Meetings.FirstOrDefaultAsync(m => m.Id == id);
+            if (meeting == null) return NotFound("Meeting not found.");
+
+            // Organizer-only guard
+            if (meeting.UserId != domainUser.Id)
+                return Forbid();
+
+            if (dto.UserIds == null || dto.UserIds.Count == 0)
+                return Ok(new { added = 0 });
+
+            var targetIds = dto.UserIds
+                .Where(uid => uid != domainUser.Id) // don’t re-add organizer
+                .Distinct()
+                .ToList();
+
+            if (targetIds.Count == 0) return Ok(new { added = 0 });
+
+            // Fetch already invited users for this meeting
+            var existing = await _db.Attendees
+                .Where(a => a.MeetingId == id && targetIds.Contains(a.UserId))
+                .Select(a => a.UserId)
+                .ToListAsync();
+
+            var toAdd = targetIds
+                .Except(existing)
+                .Select(uid => new Attendee
+                {
+                    Id = Guid.NewGuid(),
+                    MeetingId = id,
+                    UserId = uid,
+                    IsOrganizer = false,
+                    Attended = false
+                })
+                .ToList();
+
+            if (toAdd.Count == 0) return Ok(new { added = 0 });
+
+            _db.Attendees.AddRange(toAdd);
+            await _db.SaveChangesAsync();
+
+            return Ok(new { added = toAdd.Count });
         }
     }
 }

@@ -3,6 +3,7 @@ using MeetingManager.Users.Model;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace MeetingManager.Users.Controller
 {
@@ -13,11 +14,13 @@ namespace MeetingManager.Users.Controller
     {
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly AppDbContext _db;
 
-        public UsersController(UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager)
+        public UsersController(UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager, AppDbContext db)
         {
             _userManager = userManager;
             _roleManager = roleManager;
+            _db = db;
         }
 
         // GET: api/users
@@ -63,7 +66,7 @@ namespace MeetingManager.Users.Controller
             // Ensure role exists
             if (!string.IsNullOrWhiteSpace(req.Role) && !await _roleManager.RoleExistsAsync(req.Role))
                 return BadRequest(new { message = $"Role '{req.Role}' does not exist." });
-
+    
             var u = new ApplicationUser
             {
                 UserName = req.Username,
@@ -77,6 +80,50 @@ namespace MeetingManager.Users.Controller
 
             if (!string.IsNullOrWhiteSpace(req.Role))
                 await _userManager.AddToRoleAsync(u, req.Role);
+
+            var roleName = string.IsNullOrWhiteSpace(req.Role) ? "Employee" : req.Role;
+
+            var domainRole = await _db.Roles.SingleOrDefaultAsync(r => r.Title == roleName);
+            if (domainRole == null)
+            {
+                domainRole = new MeetingManager.Roles.Model.Role
+                {
+                    Id = Guid.NewGuid(),
+                    Title = roleName
+                };
+                _db.Roles.Add(domainRole);
+                await _db.SaveChangesAsync();
+            }
+
+            if (!string.IsNullOrWhiteSpace(u.Email))
+    {
+                var emailNorm = u.Email.Trim().ToLowerInvariant();
+
+                var exists = await _db.AppUsers
+                    .AnyAsync(x => x.Email != null && x.Email.Trim().ToLower() == emailNorm);
+
+                if (!exists)
+                {
+                    var displayName = string.IsNullOrWhiteSpace(u.FullName)
+                        ? (string.IsNullOrWhiteSpace(u.UserName) ? u.Email : u.UserName)
+                        : u.FullName;
+
+                   
+                 
+
+                    _db.AppUsers.Add(new MeetingManager.Users.Model.User
+                    {
+                        Id = Guid.NewGuid(),
+                        Name = displayName,
+                        Email = u.Email,
+                        CreatedAt = DateTime.UtcNow,
+                         RoleId = domainRole.Id
+
+                    });
+
+                    await _db.SaveChangesAsync();
+                }
+            }
 
             return CreatedAtAction(nameof(GetById), new { id = u.Id }, new { u.Id });
         }

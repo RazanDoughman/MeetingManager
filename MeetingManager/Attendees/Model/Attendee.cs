@@ -10,6 +10,7 @@ namespace MeetingManager.Attendees.Model
         public Guid MeetingId { get; set; }
         public Guid UserId { get; set; }
         public bool Attended { get; set; }
+        public bool IsOrganizer { get; set; } = false;
 
         public Meeting Meeting { get; set; }
         public User User { get; set; }

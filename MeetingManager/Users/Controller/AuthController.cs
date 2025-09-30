@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using MeetingManager.Users.DTO;     // your LoginRequest, RegisterRequest
 using MeetingManager.Users.Model;   // ApplicationUser
+using Microsoft.EntityFrameworkCore;
 
 namespace MeetingManager.Users.Controller
 {
@@ -17,9 +18,10 @@ namespace MeetingManager.Users.Controller
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly IConfiguration _config;
+        private readonly AppDbContext _db;
 
-        public AuthController(UserManager<ApplicationUser> um, SignInManager<ApplicationUser> sm, IConfiguration cfg)
-        { _userManager = um; _signInManager = sm; _config = cfg; }
+        public AuthController(UserManager<ApplicationUser> um, SignInManager<ApplicationUser> sm, IConfiguration cfg, AppDbContext db)
+        { _userManager = um; _signInManager = sm; _config = cfg; _db = db; }
 
         [HttpPost("login")]
         [AllowAnonymous]
@@ -54,8 +56,51 @@ namespace MeetingManager.Users.Controller
             };
             var result = await _userManager.CreateAsync(u, req.Password);
             if (!result.Succeeded) return BadRequest(result.Errors);
+
             if (!string.IsNullOrWhiteSpace(req.Role))
                 await _userManager.AddToRoleAsync(u, req.Role);
+
+            // --- Resolve domain role (dbo.Role). Default to "Employee"
+            var roleName = string.IsNullOrWhiteSpace(req.Role) ? "Employee" : req.Role;
+
+            var domainRole = await _db.Roles.SingleOrDefaultAsync(r => r.Title == roleName);
+            if (domainRole == null)
+            {
+                domainRole = new MeetingManager.Roles.Model.Role
+                {
+                    Id = Guid.NewGuid(),
+                    Title = roleName
+                };
+                _db.Roles.Add(domainRole);
+                await _db.SaveChangesAsync();
+            }
+
+            // --- Ensure domain user (dbo.User) exists for invitations/attendees
+            if (!string.IsNullOrWhiteSpace(u.Email))
+            {
+                var emailNorm = u.Email.Trim().ToLowerInvariant();
+                var exists = await _db.AppUsers
+                    .AnyAsync(x => x.Email != null && x.Email.Trim().ToLower() == emailNorm);
+
+                if (!exists)
+                {
+                    var displayName = string.IsNullOrWhiteSpace(u.FullName)
+                        ? (string.IsNullOrWhiteSpace(u.UserName) ? u.Email : u.UserName)
+                        : u.FullName;
+
+                    _db.AppUsers.Add(new MeetingManager.Users.Model.User
+                    {
+                        Id = Guid.NewGuid(),
+                        Name = displayName,
+                        Email = u.Email,
+                        CreatedAt = DateTime.UtcNow,
+                        RoleId = domainRole.Id   // non-nullable Guid
+                    });
+
+                    await _db.SaveChangesAsync();
+                }
+            }
+
             return Ok(new { message = "Registered" });
         }
 
