@@ -1,10 +1,11 @@
 ﻿using MeetingManager;
+using MeetingManager.Rooms.DTO;
 using MeetingManager.Rooms.Model;
 using MeetingManager.Rooms.Service;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Authorization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -77,6 +78,19 @@ namespace MeetingManager.Rooms.Controller
                 return NotFound();
 
             return NoContent();
+        }
+
+        [HttpGet("{id:guid}/availability")]
+        public async Task<ActionResult<DailyAvailabilityDto>> GetAvailability(
+          Guid id,
+          [FromQuery] DateOnly date,     // requires .NET 7/8 DateOnly binding
+          [FromQuery] int slotMinutes = 30,
+          [FromQuery(Name = "startHour")] int startHourLocal = 9,
+          [FromQuery(Name = "endHour")] int endHourLocal = 17)
+        {
+            var result = await _roomService.GetDailyAvailabilityAsync(id, date, slotMinutes, startHourLocal, endHourLocal);
+            if (result is null) return NotFound("Room not found.");
+            return Ok(result);
         }
     }
 }

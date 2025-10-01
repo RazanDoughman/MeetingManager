@@ -1,5 +1,6 @@
 ﻿using MeetingManager;
 using MeetingManager.Attendees.Model;
+using MeetingManager.Meetings.DTO;
 using MeetingManager.Meetings.Model;
 using MeetingManager.Users.Model;
 using Microsoft.AspNetCore.Authorization;
@@ -259,5 +260,158 @@ namespace MeetingManager.Meetings.Controller
 
             return Ok(new { added = toAdd.Count });
         }
+
+        [HttpPatch("{id:guid}/reschedule")]
+        public async Task<IActionResult> Reschedule(Guid id, [FromBody] RescheduleMeetingDto dto)
+        {
+            var identityId = User.FindFirst("sub")?.Value
+                  ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrWhiteSpace(identityId))
+                return Unauthorized("No subject/id claim in token.");
+
+            var identityUser = await _userManager.FindByIdAsync(identityId);
+            if (identityUser == null || string.IsNullOrWhiteSpace(identityUser.Email))
+                return Unauthorized("Identity user not found or has no email.");
+
+            var idEmail = identityUser.Email.Trim().ToLowerInvariant();
+            var domainUser = await _db.AppUsers
+                .SingleOrDefaultAsync(u => u.Email != null && u.Email.Trim().ToLower() == idEmail);
+            if (domainUser == null)
+                return BadRequest("Signed-in user not found in application Users table.");
+
+            // 2) Load meeting and authorize: organizer or admin
+            var meeting = await _db.Meetings.FirstOrDefaultAsync(m => m.Id == id);
+            if (meeting == null) return NotFound("Meeting not found.");
+
+            var isOrganizer = meeting.UserId == domainUser.Id;  // Meeting.UserId is Guid
+            var isAdmin = User.IsInRole("Admin");
+
+            if (!isOrganizer && !isAdmin)
+                return Forbid("You are not allowed to reschedule this meeting.");
+
+            // 3) Proceed with business logic
+            try
+            {
+                var updated = await _service.RescheduleAsync(id, dto.StartTime, dto.EndTime);
+                if (updated is null) return NotFound("Meeting not found.");
+
+                return Ok(new
+                {
+                    updated.Id,
+                    updated.Title,
+                    updated.RoomId,
+                    updated.StartTime,
+                    updated.EndTime,
+                    updated.Status
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (ApplicationException ex) // overlap/conflict
+            {
+                return Conflict(ex.Message);
+            }
+        }
+
+
+        [HttpPatch("{id:guid}/cancel")]
+        public async Task<IActionResult> Cancel(Guid id)
+        {
+            var identityId = User.FindFirst("sub")?.Value
+                          ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrWhiteSpace(identityId))
+                return Unauthorized();
+
+            var identityUser = await _userManager.FindByIdAsync(identityId);
+            if (identityUser == null || string.IsNullOrWhiteSpace(identityUser.Email))
+                return Unauthorized("Identity user not found or has no email.");
+
+            var idEmail = identityUser.Email.Trim().ToLowerInvariant();
+            var domainUser = await _db.AppUsers
+                .SingleOrDefaultAsync(u => u.Email != null && u.Email.Trim().ToLower() == idEmail);
+            if (domainUser == null)
+                return BadRequest("Signed-in user not found in application Users table.");
+
+            var isAdmin = User.IsInRole("Admin");
+
+            try
+            {
+                var success = await _service.CancelAsync(id, domainUser.Id, isAdmin);
+                if (!success) return NotFound("Meeting not found or already canceled.");
+                return Ok(new { canceled = true });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Forbid(ex.Message);
+            }
+        }
+
+        [HttpGet("canceled")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<IEnumerable<MeetingDto>>> GetCanceled()
+        {
+            var meetings = await _service.GetAllAsync();
+
+            var canceled = meetings
+                .Where(m => m.Status == "Canceled")
+                .Select(m => new MeetingDto
+                {
+                    Id = m.Id,
+                    Title = m.Title,
+                    Agenda = m.Agenda,
+                    StartTime = m.StartTime,
+                    EndTime = m.EndTime,
+                    CreatedAt = m.CreatedAt,
+                    UpdatedAt = m.UpdatedAt,
+                    Status = m.Status,
+                    RoomId = m.RoomId,
+                    RoomName = m.Room?.RoomName,
+                    UserId = m.UserId,
+                    UserName = m.User?.Name
+                });
+
+            return Ok(canceled);
+        }
+
+        // GET: api/Meeting/calendar
+        [HttpGet("calendar")]
+        public async Task<IActionResult> GetCalendarEvents(
+            [FromQuery] Guid? roomId,
+            [FromQuery] Guid? organizerId,
+            [FromQuery] DateTime? start,
+            [FromQuery] DateTime? end)
+        {
+            var query = _db.Meetings
+                .Include(m => m.Room)
+                .Include(m => m.User)
+                .Where(m => m.Status != "Canceled");
+
+            // Apply filters
+            if (roomId.HasValue)
+                query = query.Where(m => m.RoomId == roomId.Value);
+
+            if (organizerId.HasValue)
+                query = query.Where(m => m.UserId == organizerId.Value);
+
+            if (start.HasValue && end.HasValue)
+                query = query.Where(m => m.StartTime >= start.Value && m.EndTime <= end.Value);
+
+            var events = await query
+                .Select(m => new
+                {
+                    id = m.Id,
+                    title = m.Title + " (" + (m.Room.RoomName ?? "Room") + ")",
+                    start = m.StartTime,
+                    end = m.EndTime,
+                    roomName = m.Room.RoomName,
+                    organizer = m.User.Name
+                })
+                .ToListAsync();
+
+            return Ok(events);
+        }
+
     }
 }
